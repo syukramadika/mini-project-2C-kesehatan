@@ -6,7 +6,7 @@ print("=========================================================")
 import csv
 import statistics
 
-nama_file = "data/rumah_sakit_per_provinsi_2023_2024.csv"
+nama_file = "test_case/tc_data_batas.csv"
 file_akun = "akun.csv"
 kolom_angka = ["RS 2023", "TT Jumlah 2023", "TT Rasio 2023", "RS 2024", "TT Jumlah 2024", "TT Rasio 2024"]
 kolom_wajib = ["Provinsi"] + kolom_angka
