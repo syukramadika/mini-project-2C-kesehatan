@@ -1,80 +1,37 @@
 import csv
-import math
 import statistics
 
 nama_file = "data/rumah_sakit_per_provinsi_2023_2024.csv"
-
+kolom_angka = ["RS 2023", "TT Jumlah 2023", "TT Rasio 2023",
+               "RS 2024", "TT Jumlah 2024", "TT Rasio 2024"]
+kolom_wajib = ["Provinsi"] + kolom_angka
 
 def validasi_input(baris):
-    nama_provinsi = (baris.get("Provinsi") or "").strip()
-    if nama_provinsi == "":
+    provinsi = (baris.get("Provinsi") or "").strip()
+    if not provinsi:
         return False, "Nama provinsi kosong."
 
-    try:
-        jumlah_rs_2023 = float(baris["RS 2023"])
-        jumlah_tt_2023 = float(baris["TT Jumlah 2023"])
-        jumlah_rs_2024 = float(baris["RS 2024"])
-        jumlah_tt_2024 = float(baris["TT Jumlah 2024"])
-        rasio_2024 = float(baris["TT Rasio 2024"])
-    except (ValueError, TypeError, KeyError):
-        return False, "Data numerik tidak valid atau kolom tidak ditemukan."
+    data_bersih = {"prov": provinsi}
+    for kolom in kolom_angka:
+        teks = (baris.get(kolom) or "").strip()
+        if kolom == "TT Rasio 2023" and teks == "":
+            data_bersih[kolom] = None
+            continue
+        if teks == "":
+            return False, f"Data {kolom} kosong."
 
-    # Rasio 2023 boleh kosong (dicatat sebagai None)
-    rasio_2023 = (baris.get("TT Rasio 2023") or "").strip()
-    if rasio_2023 == "":
-        rasio_2023 = None
-    else:
         try:
-            rasio_2023 = float(rasio_2023)
+            nilai = float(teks)
         except (ValueError, TypeError):
-            return False, "Data rasio 2023 tidak valid."
+            return False, f"Data {kolom} bukan angka."
 
-    if not math.isfinite(jumlah_rs_2023) or jumlah_rs_2023 < 0:
-        return False, "Jumlah RS 2023 tidak valid atau negatif."
-    if not math.isfinite(jumlah_tt_2023) or jumlah_tt_2023 < 0:
-        return False, "Jumlah TT 2023 tidak valid atau negatif."
-    if not math.isfinite(jumlah_rs_2024) or jumlah_rs_2024 < 0:
-        return False, "Jumlah RS 2024 tidak valid atau negatif."
-    if not math.isfinite(jumlah_tt_2024) or jumlah_tt_2024 < 0:
-        return False, "Jumlah TT 2024 tidak valid atau negatif."
-    if not math.isfinite(rasio_2024) or rasio_2024 < 0:
-        return False, "Rasio 2024 tidak valid atau negatif."
-    if rasio_2023 is not None:
-        if not math.isfinite(rasio_2023) or rasio_2023 < 0:
-            return False, "Rasio 2023 tidak valid atau negatif."
+        if nilai != nilai or nilai in (float("inf"), float("-inf")):
+            return False, f"Data {kolom} tidak valid."
+        if nilai < 0:
+            return False, f"Data {kolom} berupa angka negatif."
+        data_bersih[kolom] = nilai
 
-    data_bersih = {
-        "prov": nama_provinsi,
-        "RS 2023": jumlah_rs_2023,
-        "TT Jumlah 2023": jumlah_tt_2023,
-        "TT Rasio 2023": rasio_2023,
-        "RS 2024": jumlah_rs_2024,
-        "TT Jumlah 2024": jumlah_tt_2024,
-        "TT Rasio 2024": rasio_2024,
-    }
     return True, data_bersih
-
-
-def baca_data(nama_file):
-    data_valid = []
-    daftar_invalid = []
-
-    try:
-        with open(nama_file, "r", encoding="utf-8-sig", newline="") as file:
-            pembaca = csv.DictReader(file)
-            for baris in pembaca:
-                valid, hasil = validasi_input(baris)
-                if valid:
-                    data_valid.append(hasil)
-                else:
-                    daftar_invalid.append((pembaca.line_num, hasil))
-
-        print(f"Data dibaca: {len(data_valid)} valid, {len(daftar_invalid)} ditolak.")
-        return data_valid, daftar_invalid
-
-    except FileNotFoundError:
-        print("File CSV tidak ditemukan.")
-        return None, None
 
 
 def format_angka(nilai):
@@ -85,42 +42,91 @@ def ringkasan_statistik(data_valid, tahun):
     kolom_rs = f"RS {tahun}"
     kolom_tt = f"TT Jumlah {tahun}"
     kolom_rasio = f"TT Rasio {tahun}"
-
-    data_rasio = [isi for isi in data_valid if isi[kolom_rasio] is not None]
-    if not data_rasio:
-        print("Tidak ada data rasio valid untuk tahun ini.")
-        return
+    data_rasio = [isi[kolom_rasio] for isi in data_valid]
 
     total_rs = sum(isi[kolom_rs] for isi in data_valid)
     total_tt = sum(isi[kolom_tt] for isi in data_valid)
-    daftar_rasio = [isi[kolom_rasio] for isi in data_rasio]
-
-    tertinggi = data_rasio[0]
-    terendah = data_rasio[0]
-    for isi in data_rasio:
-        if isi[kolom_rasio] > tertinggi[kolom_rasio]:
-            tertinggi = isi
-        if isi[kolom_rasio] < terendah[kolom_rasio]:
-            terendah = isi
-
-    print(f"\n=== RINGKASAN STATISTIK {tahun} ===")
+    print(f"\nRINGKASAN STATISTIK {tahun}")
     print(f"Jumlah provinsi      : {len(data_valid)}")
     print(f"Total rumah sakit    : {format_angka(total_rs)}")
     print(f"Total tempat tidur   : {format_angka(total_tt)}")
-    print(f"Rata-rata rasio      : {statistics.mean(daftar_rasio):.2f}")
-    print(f"Rasio tertinggi      : {tertinggi['prov']} ({tertinggi[kolom_rasio]:.2f})")
-    print(f"Rasio terendah       : {terendah['prov']} ({terendah[kolom_rasio]:.2f})")
+    print(f"Rata-rata rasio      : {statistics.mean(data_rasio):.2f}")
+    tertinggi = max(data_rasio)
+    terendah = min(data_rasio)
+    provinsi_tertinggi = [isi["prov"] for isi in data_valid
+                          if isi[kolom_rasio] == tertinggi]
+    provinsi_terendah = [isi["prov"] for isi in data_valid
+                         if isi[kolom_rasio] == terendah]
+
+    print(f"Rasio tertinggi      : {', '.join(provinsi_tertinggi)} ({tertinggi:.2f})")
+    print(f"Rasio terendah       : {', '.join(provinsi_terendah)} ({terendah:.2f})")
 
 
-data_valid, daftar_invalid = baca_data(nama_file)
+print("=========================================================")
+print("Analisis Ketersediaan Tempat Tidur Rumah Sakit")
+print("       pada Setiap Provinsi di Indonesia")
+print("=========================================================\n")
 
-if data_valid is not None:
-    print("\n=== PEMERIKSAAN DATA ===")
-    if daftar_invalid:
-        for nomor, alasan in daftar_invalid:
-            print(f"- Baris {nomor}: {alasan}")
-    else:
-        print("Tidak ada data yang ditolak saat validasi.")
+data_valid = []
+daftar_invalid = []
+data_berhasil = False
 
-    ringkasan_statistik(data_valid, "2023")
-    ringkasan_statistik(data_valid, "2024")
+try:
+    with open(nama_file, "r", encoding="utf-8-sig", newline="") as file:
+        pembaca = csv.DictReader(file)
+        if not pembaca.fieldnames:
+            print("File CSV tidak memiliki header.")
+        else:
+            kolom_hilang = [kolom for kolom in kolom_wajib
+                            if kolom not in pembaca.fieldnames]
+            if kolom_hilang:
+                print("Kolom tidak ditemukan: " + ", ".join(kolom_hilang))
+            else:
+                data_berhasil = True
+                for baris in pembaca:
+                    valid, hasil = validasi_input(baris)
+                    if valid:
+                        data_valid.append(hasil)
+                    else:
+                        daftar_invalid.append((pembaca.line_num, hasil))
+
+                print(f"Data dibaca: {len(data_valid)} valid, {len(daftar_invalid)} ditolak.")
+                if daftar_invalid:
+                    print("\nPEMERIKSAAN DATASET")
+                    for nomor, alasan in daftar_invalid:
+                        print(f"Baris {nomor}: {alasan}")
+                elif data_valid:
+                    print("Tidak ada data yang ditolak saat validasi.")
+                else:
+                    print("Dataset tidak memiliki baris data.")
+except FileNotFoundError:
+    print("File CSV tidak ditemukan.")
+except OSError:
+    print("File CSV tidak dapat dibaca.")
+
+if data_berhasil:
+    while True:
+        print("\nMENU UTAMA")
+        print("1. Ringkasan Statistik")
+        print("0. Keluar")
+        pilihan = input("Pilih menu: ").strip()
+
+        if pilihan == "1":
+            print("\nPILIH TAHUN")
+            print("1. 2023")
+            print("2. 2024")
+            print("0. Kembali")
+            tahun = input("Pilih tahun: ").strip()
+            if tahun == "1":
+                ringkasan_statistik(data_valid, "2023")
+            elif tahun == "2":
+                ringkasan_statistik(data_valid, "2024")
+            elif tahun != "0":
+                print("Pilihan tahun tidak valid.")
+        elif pilihan == "0":
+            print("Terima kasih. Program selesai.")
+            break
+        else:
+            print("Pilihan tidak valid. Masukkan angka 0 atau 1.")
+else:
+    print("Program selesai.")
